@@ -2,7 +2,18 @@ Basic Structure of a GitHub Actions Workflow
 
 A workflow has:
 
-name: → Name of your workflow
-on: → When it should trigger (push, pull_request, schedule, manual)
-jobs: → What jobs (sets of steps) it should run
-steps: → Actual individual actions/tasks like checkout code, run scripts, deploy
+|   Keyword         |   Description                                                                   |
+| :---------------- | :------------------------------------------------------------------------------ |
+| `name`            | Name of the workflow (shows in GitHub Actions tab).                             |
+| `on`              | Defines the event(s) that trigger the workflow (e.g. `push`, `pull_request`).   |
+| `jobs`            | Contains a map of jobs to run. Each job is a collection of steps.               |
+| `runs-on`         | Specifies the type of virtual machine to run the job on (e.g. `ubuntu-latest`). |
+| `steps`           | List of individual actions or commands to run inside a job.                     |
+| `uses`            | Uses a GitHub Action from the marketplace or a public repo.                     |
+| `run`             | Runs a shell command/script on the runner.                                      |
+| `with`            | Provides input parameters to an action used in `uses`.                          |
+| `env`             | Sets environment variables for jobs or steps.                                   |
+| `if`              | Runs a step or job conditionally based on an expression.                        |
+| `needs`           | Specifies job dependencies (run this job after another job finishes).           |
+| `timeout-minutes` | Sets a timeout for a job to prevent it from hanging forever.                    |
+| `outputs`         | Defines outputs from a job to be consumed by other jobs.                        |
