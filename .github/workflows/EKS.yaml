@@ -1,0 +1,47 @@
+name: Docker to EKS CI/CD
+on: 
+  push:
+    branches:
+    - master
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu
+    steps:
+    - name: checkout branch
+      uses: actions/checkout@v4
+    - name: set aws CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: login to aws ECR
+      run: |
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_URI }}
+    - name: build docker image
+      run: |
+        docker build -t ${{ secrets.ECR_REPOSITORY_URI }}:$GITHUB_SHA .
+    - name: push docker image to ECR
+      run: docker push ${{ secrets.ECR_REPOSITORY_URI }}:$GITHUB_SHA
+    - name: set up kubectl
+      uses: aws-actions/eks-kubectl-action@v2
+      with: 
+        cluster-name: ${{secret.EKS_CLUSTER_NAME}}
+        region: ${{secrets.AWS_REGION}}
+    - name: deploy to EKS
+      run: |
+        kubectl set image deployment/my-app my-app=${{ secrets.ECR_REPOSITORY_URI }}:$GITHUB_SHA
+        kubectl rollout status deployment/my-app
+    - name: Install cert-manager
+      run: |
+        kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/latest/download/cert-manager.yaml
+    - name: Install CloudWatch CRDs
+      run: |
+        curl https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/main/k8s-quickstart/cwagent-custom-resource-definitions.yaml | kubectl apply --server-side -f -
+    - name: Install CloudWatch Agent Operator + Fluent Bit
+      run: |
+        curl https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/main/k8s-quickstart/cwagent-operator-rendered.yaml | \
+        sed "s/{{cluster_name}}/$CLUSTER_NAME/g;s/{{region_name}}/$AWS_REGION/g" | kubectl apply -f -
+    - name: Verify CloudWatch DaemonSet
+      run: |
+        kubectl get daemonset -n amazon-cloudwatch
