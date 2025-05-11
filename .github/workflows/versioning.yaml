@@ -1,0 +1,84 @@
+name: Production Deployment Pipeline
+on: 
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Version to deploy"
+        required: true
+        default: '1.0.0'
+  
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows, ubuntu]
+        node: [18, 19]
+    runs-on: ${{matrix.os}}
+
+    steps:
+    - name: branch checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: setup environment
+      uses: actions/setup-node@v4
+      with:
+        node version: ${{matrix.node}}
+
+    - name: install dependencies
+      run: npm install 
+
+    - name: test
+      run: npm test
+
+    - name: build application
+      run: npm run build
+
+    - name: deploy to production
+      env:
+        API_KEY: ${{secrets.PROD_API_KEY}}
+      run: 
+        echo "deploying to the productions..."
+        echo "using api keys $API_KEY"
+        echo "deploying version ${{ steps.versioning.outputs.version }} to production..."
+
+    - name: configure git
+      run: |
+        git config user.name "secrets.GIT_USERNAME"
+        git config user.email "secrets.EMAIL_ID"
+
+    - name: Get latest tag and increment patch version
+      id: versioning
+      run: |
+        latest-tag=$git describe --tags --abbrev=0 || echo "v0.0.0."
+        echo "Latest tag: $latest-tag"
+
+        #split version parts
+        IFS='.' read -r -a parts <<< "${latest-tag#v}"
+        major="{parts[0]}"
+        minor="{parts[1]}"
+        patch="{parts[2]}"
+
+        #increment patch
+        new-patch=$((patch+1))
+        new-version="v$major.$minor.$patch"
+
+        echo "new version: $new-version"
+
+        #Create a new tag
+        git tag "$new-version"
+        git push origin "$new-version"
+
+        echo "version=$new-version" >> $GITHUB_OUTPUT
+
+        
+      
+    
+      
